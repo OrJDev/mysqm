@@ -1,0 +1,18 @@
+{
+  "dependencies": {
+    "mysql": "^2.18.1"
+  },
+  "devDependencies": {
+    "@types/mysql": "^2.15.21"
+  },
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "name": "@orjdev/mysqm",
+  "description": "",
+  "version": "1.0.1",
+  "main": "lib/index.js",
+  "types": "lib",
+  "author": "OrJDev",
+  "license": "ISC"
+}
