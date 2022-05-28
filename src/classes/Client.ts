@@ -15,20 +15,24 @@ export default class Client {
     private Init() {
         this.server.connect((err, props) => {
             if (err) {
-                return Promise.reject(err);
+                throw err;
             } else {
                 this.execEvent('connected', props);
             }
         });
-        return Promise.resolve();
     };
 
     public dissconnect() {
-        this.server.end();
-        this.execEvent('disconnected');
+        this.server.end((err) => {
+            if (err) {
+                throw err;
+            } else {
+                this.execEvent('disconnected');
+            }
+        })
     }
 
-    public listen(event: IEvents, callback: ICallBack) {
+    public on(event: IEvents, callback: ICallBack) {
         if (event === 'connected' || event == 'disconnected') {
             this.events.push({ type: event, callback })
         } else {

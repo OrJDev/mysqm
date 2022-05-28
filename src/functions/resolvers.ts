@@ -1,31 +1,14 @@
-import IActions from "../types/Actions";
-
 export function resolveData<T>(json: any): T {
-    let newData: any = {};
-    let thisData = json[0];
-    for (const e in thisData) newData[e] = thisData[e];
-    return newData
+    if (typeof json !== 'object') return {} as T;
+    let element: T = {} as T;
+    if (Array.isArray(json)) element = json[0];
+    else element = json;
+    if (Object.keys(element).length === 0) { return {} as T; }
+    else { return Object.assign({}, element) }
 }
 
 export function resolveArray<T>(arr: any): T[] {
     let newArray: T[] = [];
-    for (const i in arr) {
-        let newData: any = {};
-        let thisData = arr[i];
-        for (const e in thisData) newData[e] = thisData[e];
-        if (Object.keys(newData).length != 0) newArray.push(newData);
-    }
+    for (const i in arr) { Object.keys(arr[i]).length > 0 && newArray.push(Object.assign({}, arr[i])) }
     return newArray as T[];
-}
-
-/**
- * @unimplemented
- */
-export function resolveQuery(action: IActions, table: string, isElement?: boolean) {
-    switch (action) {
-        case 'select':
-            return isElement ? `SELECT * FROM ${table} WHERE` : `SELECT * FROM ${table}`;
-        case 'delete':
-            return isElement ? `DELETE FROM ${table} WHERE` : `DELETE FROM ${table}`;
-    }
 }

@@ -1,4 +1,4 @@
-import ConvertKeys, { flatList, getQuery } from "../functions/convertKeys";
+import ConvertKeys, { flatList, mergeQuery } from "../functions/convertKeys";
 import IConfig from "../types/Config";
 import IQuery, { IRequiredQuery } from "../types/Query";
 import { promisify } from "util";
@@ -6,7 +6,6 @@ import mysql from 'mysql';
 import handleError from "../functions/handleError";
 import buildResults from "../functions/buildResults";
 import IResults from "../types/Results";
-import { resolveArray, resolveData } from "../functions/resolvers";
 import buildInput from "../functions/buildInput";
 import IFields from "../types/Fields";
 
@@ -21,95 +20,83 @@ export default class Model {
         this.sql = server;
     }
 
-    public async findOne<T = any>(inputQuery: IRequiredQuery): Promise<IResults<T>> {
+    public findOne<T = any>(inputQuery: IRequiredQuery): Promise<IResults<T>> {
         return new Promise(async (resolve, reject) => {
             try {
-                let queries = await ConvertKeys(inputQuery, this.table)
-                let query = getQuery(queries.length > 0 ?
-                    `SELECT * FROM ${this.table} WHERE` :
-                    `SELECT * FROM ${this.table}`, queries)
-                let mySQM = this.getPromise(query);
-                let results = await mySQM()
-                let success = results.length > 0;
-                let parsed = success ? resolveData<T>(results) : {} as T;
-                let r = buildResults<T>(parsed, query, queries, this.config, results, success)
-                return resolve(r)
-            } catch (e) {
-                let err = await handleError(e)
-                return reject(err)
-            }
+                let queries = await ConvertKeys(inputQuery),
+                    query = mergeQuery(`SELECT * FROM ${this.table}`, queries),
+                    results = await (this.getPromise(query))(),
+                    success = results.length > 0,
+                    parsed = (success ? results[0] : {}) as T;
+                return resolve(buildResults<T>(parsed, query, queries, this.config, results, success))
+            } catch (e) { return reject(handleError(e)) }
         })
     }
 
-    public async findAll<T = any>(inputQuery: IQuery): Promise<IResults<T[]>> {
+    public findAll<T = any>(inputQuery: IQuery): Promise<IResults<T[]>> {
         return new Promise(async (resolve, reject) => {
             try {
-                let queries = await ConvertKeys(inputQuery, this.table)
-                let query = getQuery(`SELECT * FROM ${this.table}`, queries)
-                let mySQM = this.getPromise(query);
-                let results = await mySQM()
-                let success = results.length > 0;
-                let parsed = success ? resolveArray<T>(results) : [] as T[];
-                let r = buildResults<T[]>(parsed, query, queries, this.config, results, success)
-                return resolve(r)
-            } catch (e) {
-                let err = await handleError(e)
-                return reject(err)
-            }
+                let queries = await ConvertKeys(inputQuery),
+                    query = mergeQuery(`SELECT * FROM ${this.table}`, queries),
+                    results = await (this.getPromise(query))(),
+                    success = results.length > 0,
+                    parsed = success ? results : [] as T[];
+                return resolve(buildResults<T[]>(parsed, query, queries, this.config, results, success))
+            } catch (e) { return reject(handleError(e)) }
         })
     }
 
-    public async delete(inputQuery: IQuery): Promise<IResults<unknown>> {
+    public delete(inputQuery: IQuery): Promise<IResults<unknown>> {
         return new Promise(async (resolve, reject) => {
             try {
-                let queries = await ConvertKeys(inputQuery, this.table)
-                let query = getQuery(queries.length > 0 ?
-                    `DELETE FROM ${this.table} WHERE` :
-                    `DELETE FROM ${this.table}`, queries)
-                let mySQM = this.getPromise(query);
-                let results = await mySQM()
-                let success = results.affectedRows > 0;
-                let r = buildResults<unknown>({}, query, queries, this.config, results, success)
-                return resolve(r)
-            } catch (e) {
-                let err = await handleError(e)
-                return reject(err)
-            }
+                let queries = await ConvertKeys(inputQuery),
+                    query = mergeQuery(`DELETE FROM ${this.table}`, queries),
+                    results = await (this.getPromise(query))(),
+                    success = results.affectedRows > 0;
+                return resolve(buildResults<unknown>(
+                    {},
+                    query,
+                    queries,
+                    this.config,
+                    results,
+                    success))
+            } catch (e) { return reject(handleError(e)) }
         })
     }
 
-    public async updateOne(inputQuery: IRequiredQuery, newFields: IFields): Promise<IResults<unknown>> {
+    public updateOne(inputQuery: IRequiredQuery, newFields: IFields): Promise<IResults<unknown>> {
         return new Promise(async (resolve, reject) => {
             try {
-                let [query, queries, args] = await buildInput(newFields, this.table, inputQuery);
-                let mySQM = this.getPromise(query, ...args);
-                let results = await mySQM()
-                let success = results.affectedRows > 0;
-                let r = buildResults<unknown>({}, query, flatList(queries), this.config, results, success)
-                return resolve(r)
-            } catch (e) {
-                let err = await handleError(e)
-                return reject(err)
-            }
+                let [query, queries, args] = await buildInput(newFields, this.table, inputQuery),
+                    results = await (this.getPromise(query, ...args))(),
+                    success = results.affectedRows > 0;
+                return resolve(buildResults<unknown>(
+                    {},
+                    query,
+                    flatList(queries),
+                    this.config,
+                    results, success))
+            } catch (e) { return reject(handleError(e)) }
         })
     }
 
-    public async createOne(newFields: IFields): Promise<IResults<unknown>> {
+    public createOne(newFields: IFields): Promise<IResults<unknown>> {
         return new Promise(async (resolve, reject) => {
             try {
-                let [query, queries, args] = await buildInput(newFields, this.table, undefined, true);
-                let mySQM = this.getPromise(query, ...args);
-                let results = await mySQM()
-                let success = results.affectedRows > 0;
-                let r = buildResults<unknown>({}, query, flatList(queries), this.config, results, success)
-                return resolve(r)
-            } catch (e) {
-                let err = await handleError(e)
-                return reject(err)
-            }
+                let [query, queries, args] = await buildInput(newFields, this.table, undefined, true),
+                    results = await (this.getPromise(query, ...args))(),
+                    success = results.affectedRows > 0;
+                return resolve(buildResults<unknown>(
+                    {},
+                    query,
+                    flatList(queries),
+                    this.config,
+                    results,
+                    success))
+            } catch (e) { return reject(handleError(e)) }
         })
     }
-    private getPromise(query: string, ...props: any): ReturnType<typeof promisify> {
+    private getPromise(query: string, ...props: any): any {
         let promises = promisify(this.sql.query).bind(this.sql, query, ...props);
         return promises;
     }

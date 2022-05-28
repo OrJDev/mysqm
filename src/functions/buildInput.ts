@@ -1,54 +1,46 @@
 import IFields, { IOptionalFields } from "../types/Fields";
 import { IRequiredQuery } from "../types/Query";
 import ConvertKeys, { getQuery } from "./convertKeys";
+import handleError from "./handleError";
 
-export default function buildInput(fields: IFields, table: string, inputQuery?: IRequiredQuery, create?: boolean):
-    Promise<[string, any[], any[]]> {
+export default function buildInput(
+    fields: IFields,
+    table: string,
+    inputQuery?: IRequiredQuery,
+    create?: boolean
+): Promise<[string, any[], any[]]> {
     return new Promise(async (resolve, reject) => {
-        let valNames: string[] = []
-        let values: any[] = []
-        let names: any[] = [];
+        let valNames: Array<any> = [],
+            values: Array<any> = [],
+            names: Array<any> = [],
+            args: Array<any> = [];
         try {
-            let args: any[] = []
             for (const i in fields) {
                 let field = fields[i]
-                type Key = keyof typeof field;
-                Object.keys(field).forEach(key => {
-                    switch (key as IOptionalFields) {
-                        case 'default':
-                            valNames.push(`${i} = "${field[key as Key]}"`)
-                            break;
-                        case 'special':
-                            args.push(field[key as Key])
-                            valNames.push(`${i} = ?`)
-                            break;
-                        default:
-                            valNames.push(`${i} = "${field[key as Key]}"`)
-                            break;
-                    }
+                type IKey = keyof typeof field;
+                let keys = Object.keys(field);
+                for (let j = 0; j < keys.length; j++) {
+                    let key = keys[j] as IOptionalFields;
+                    if (key === 'special') args.push(field[key as IKey])
                     if (create) {
-                        values.push(key === 'default' ? `"${field[key as Key]}"` : '?')
+                        values.push(key === 'default' ? `"${field[key as IKey]}"` : '?')
                         names.push(i)
+                    } else {
+                        valNames.push(`${i} = ${key === 'default' ? `"${field[key as IKey]}"` : '?'}`)
                     }
-                })
+                }
             }
-            if (create) {
-                return resolve([
-                    `INSERT INTO ${table} (${names.join(',')}) VALUES (${values.join(',')})`,
-                    [],
-                    args
-                ])
-            } else {
-                let queries = await ConvertKeys(inputQuery!, table)
-                return resolve([
-                    getQuery(`UPDATE ${table} SET ${valNames.join(", ")} WHERE`, queries),
-                    queries,
-                    args])
-            }
+            let queries = create ? [] : (await ConvertKeys(inputQuery!));
+            let query = create ?
+                `INSERT INTO ${table} (${names.join(',')}) VALUES (${values.join(',')})`
+                :
+                getQuery(`UPDATE ${table} SET ${valNames.join(", ")} WHERE`, queries);
+            return resolve([
+                query,
+                queries,
+                args
+            ])
         }
-        catch (e) {
-            return reject(e)
-        }
+        catch (e) { return reject(handleError(e)) }
     })
-
 }
